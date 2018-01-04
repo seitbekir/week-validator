@@ -5,26 +5,28 @@ function max(str, max) {
     return str.length <= max
 }
 
-let valid = new Validator()
+// Init validator instance
+let myValidator = new Validator()
 
-valid.field('name', [
+// add field
+myValidator.field('name', [
     Validator.filter((str) => String(str)),
     Validator.validator(max, 10),
     Validator.validator((str) => new Promise(res => setTimeout(() => res(true), 1000))),
 ])
 
-valid.array('ages', [
+myValidator.array('ages', [
     Validator.validator((item) => _.isNumber(item)),
 ])
 
-valid.collection('drinks.alco', 'name', [
+myValidator.collection('drinks.alco', 'name', [
     Validator.validator(max, 10),
 ], [
     Validator.exists,
 ])
 
-// try to change data to expect fails
-valid.validate({
+// Object to validate
+const obj = {
     name: 'hello',
     ages: [10, 25],
     drinks: {
@@ -37,7 +39,10 @@ valid.validate({
             },
         ],
     },
-})
+}
+
+// validate
+myValidator.validate(obj)
     .then(res => {
         console.log('Validation Success')
     })

@@ -177,7 +177,7 @@ Validator.prototype.validate = async function(object) {
     }
 }
 
-Validator.filter = function(method, ...opt) {
+Validator.filter = function(method, ...opts) {
     if (typeof method !== 'function') {
         return null
     }
@@ -185,12 +185,12 @@ Validator.filter = function(method, ...opt) {
         return {
             name: method.name || 'custom filter',
             type: QUEUE_MEMBER.FILTER,
-            result: (data) => method.apply(null, [data, ...opt])
+            result: (data) => method.apply(null, [data, ...opts])
         }
     }
 }
 
-Validator.validator = function(method, ...opt) {
+Validator.validator = function(method, ...opts) {
     if (typeof method !== 'function') {
         return null
     }
@@ -198,7 +198,7 @@ Validator.validator = function(method, ...opt) {
         return {
             name: method.name || 'custom validator',
             type: QUEUE_MEMBER.VALIDATOR,
-            result: (data) => method.apply(null, [data, ...opt])
+            result: (data) => method.apply(null, [data, ...opts])
         }
     }
 }
