@@ -1,0 +1,17 @@
+{
+  "name": "week-validator",
+  "version": "0.0.1",
+  "description": "It is simple validator that can be used as promise based",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "keywords": [
+    "validator"
+  ],
+  "author": "seitbekir",
+  "license": "MIT",
+  "dependencies": {
+    "lodash": "^4.17.4"
+  }
+}
