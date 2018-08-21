@@ -1,6 +1,6 @@
 {
   "name": "week-validator",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "It is simple validator that can be used as promise based",
   "main": "index.js",
   "scripts": {
@@ -12,7 +12,7 @@
   "author": "seitbekir",
   "license": "MIT",
   "dependencies": {
-    "lodash": "^4.17.4"
+    "lodash": "^4.17.10"
   },
   "devDependencies": {
     "eslint": "^5.4.0",
