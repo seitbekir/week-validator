@@ -1,7 +1,7 @@
-const _ = require('lodash');
-const Validator = require('../index');
+const _ = require('lodash')
+const Validator = require('../index')
 
-function max(str, max) {
+function max (str, max) {
     return str.length <= max
 }
 
@@ -12,7 +12,7 @@ let myValidator = new Validator()
 myValidator.field('name', [
     Validator.filter((str) => String(str)),
     Validator.validator(max, 10),
-    Validator.validator((str) => new Promise(res => setTimeout(() => res(true), 1000))),
+    Validator.validator((str) => new Promise(resolve => setTimeout(() => resolve(true), 1000))),
 ])
 
 myValidator.array('ages', [

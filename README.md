@@ -52,7 +52,7 @@ myValidator
             console.error(field.errors)
         }
     })
-    
+
  // full varsion in example/example.js
 ```
 
