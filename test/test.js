@@ -129,5 +129,35 @@ describe('Validator', () => {
             expect(validators.two.calledOnce).to.be(true)
             expect(validators.two.calledAfter(validators.one)).to.be(true)
         })
+
+        it('should return filtered data into new object', async () => {
+            const obj = {
+                name: '  Messi   ',
+                age: '32',
+                filed: 'not needed',
+                field2: { it: 'is needed', but: 'no validation required' },
+            }
+
+            const val = new Validator()
+
+            val.field('name', [
+                Validator.filter((str) => str.trim()),
+            ])
+            val.field('age', [
+                Validator.filter((str) => Number(str)),
+            ])
+            val.field('field2')
+
+            let result = await val.validate(obj)
+
+            expect(result).to.have.property('name')
+            expect(result).to.have.property('age')
+            expect(result).not.to.have.property('field')
+            expect(result).to.have.property('field2')
+
+            expect(result.name).to.eql('Messi')
+            expect(result.age).to.be(32)
+            expect(typeof result.age).to.be('number')
+        })
     })
 })

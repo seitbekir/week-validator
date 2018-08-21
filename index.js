@@ -72,11 +72,10 @@ class Validator {
     }
 
     async validate (object) {
-        let promises = []
         // group validation to subgroups
         let named = _.values(_.groupBy(this.queues, queue => queue.name))
         let states = []
-        promises = _.mapValues(named, async (queues) => {
+        const promises = _.mapValues(named, async (queues) => {
             // console.log(queues)
             const name = queues[0].name
             let state = {
@@ -179,6 +178,14 @@ class Validator {
             errors = _.filter(errors, error => error.errors.length)
             throw new ValidationError('Validation failed', errors)
         }
+
+        // build a cleared form
+        const form = {}
+        for (let state of states) {
+            form[state.name] = state.data
+        }
+
+        return form
     }
 
     static filter (method, ...opts) {
@@ -238,7 +245,10 @@ class FieldError extends Error {
     }
 }
 
+/* Definition */
 Validator.ValidationError = ValidationError
 Validator.FieldError = FieldError
 
 module.exports = Validator
+
+/* Private */
