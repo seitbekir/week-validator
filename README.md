@@ -18,10 +18,11 @@ myValidator.array('ages', [
     Validator.validator((item) => _.isNumber(item)),
 ])
 
+myValidator.field('drinks.alco', [
+    Validator.required,
+])
 myValidator.collection('drinks.alco', 'name', [
     Validator.validator(max, 10),
-], [
-    Validator.exists,
 ])
 
 // Object to validate
@@ -41,17 +42,15 @@ const obj = {
 }
 
 // validate
-myValidator
-  .validate(obj)
-  .then(res => {
-        console.log('Validation Success')
-    })
-    .catch(err => {
-        console.error(err.message)
-        for (let field of err.fields) {
-            console.error(field.errors)
-        }
-    })
+try {
+    await myValidator.validate(obj)
+    console.log('Validation Success')
+} catch (err) {
+    console.error(err.message)
+    for (let field of err.fields) {
+        console.error(field.errors)
+    }
+}
 
  // full varsion in example/example.js
 ```
@@ -75,11 +74,17 @@ Initialize a validator object.
 ## myValidator.field(fieldName, validationQueue)
 This function applies a field validation queue by field name. For nested field names use dot notation (`a.b[0].c`).
 
+Can be used once for a filed name.
+
 ## myValidator.array(fieldName, validationQueue)
 This function applies a validation queue for each element of array gotten by field name. For nested field names use dot notation (`a.b[0].c`).
 
+Can be used once for a filed name.
+
 ## myValidator.collection(fieldName, subFieldName, validationQueue)
 This function applies a validation queue for each element of collection gotten by field name and internam path on object from `subFieldName`. For nested field names use dot notation (`a.b[0].c`) on both.
+
+Can be used once for a filed name and sub field name.
 
 Following methods allow you to use any function as a validator or filter in validation queue.
 
@@ -97,11 +102,8 @@ Filter is the function which mutates an input data. For example, you may convert
 
 # Internal Validators
 
-## Validator.exists
+## Validator.required
 Check if param is exists in list, make an error if not.
-
-## Validator.notExists
-Check if param is exists in list, make error if it is.
 
 # Contribution
 Code is far from to be perfect. Feel free to create issues and PRs ;)

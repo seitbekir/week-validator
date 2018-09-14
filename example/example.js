@@ -19,10 +19,11 @@ myValidator.array('ages', [
     Validator.validator((item) => _.isNumber(item)),
 ])
 
+myValidator.field('drinks.alco', [
+    Validator.required,
+])
 myValidator.collection('drinks.alco', 'name', [
     Validator.validator(max, 10),
-], [
-    Validator.exists,
 ])
 
 // Object to validate

@@ -31,8 +31,7 @@ describe('Validator', () => {
             expect(Validator.validator).to.be.a('function')
         })
         it('should has two basic validation static methods', () => {
-            expect(Validator).to.have.property('exists')
-            expect(Validator).to.have.property('notExists')
+            expect(Validator).to.have.property('required')
         })
     })
 
@@ -158,6 +157,127 @@ describe('Validator', () => {
             expect(result.name).to.eql('Messi')
             expect(result.age).to.be(32)
             expect(typeof result.age).to.be('number')
+        })
+    })
+
+    describe('Array checks', () => {
+    })
+
+    describe('Collection checks', () => {
+    })
+
+    describe('Edge cases checks', () => {
+        it('should return data even in the absence', async () => {
+            const obj = {
+                age: '32',
+            }
+
+            const val = new Validator()
+
+            val.field('name', [
+                Validator.filter((str) => str.trim()),
+            ])
+            val.field('age', [
+                Validator.filter((str) => Number(str)),
+            ])
+
+            let result = await val.validate(obj)
+
+            expect(result).to.have.property('name')
+            expect(result).to.have.property('age')
+
+            expect(result.name).to.eql(null)
+            expect(result.age).to.be(32)
+        })
+
+        it('should error out for required object', async () => {
+            const obj = {
+                age: '32',
+            }
+
+            const val = new Validator()
+
+            val.field('name', [
+                Validator.required,
+            ])
+            val.field('age', [
+                Validator.filter((str) => Number(str)),
+            ])
+
+            try {
+                await val.validate(obj)
+            } catch (err) {
+                expect(err instanceof Validator.ValidationError).to.be(true)
+
+                expect(err.fields.length).to.be(1)
+                expect(err.fields[0].name).to.eql('name')
+                expect(err.fields[0].errors.length).to.be(1)
+                expect(err.fields[0].errors[0].validatorName).to.eql('required')
+            }
+        })
+
+        it('should error out if field repeats', async () => {
+            const obj = {
+                names: [
+                    {
+                        number: 1,
+                        foo: 'bar',
+                    },
+                    {
+                        number: 2,
+                    },
+                    {
+                        number: 3,
+                    },
+                ],
+            }
+
+            const validators = {}
+
+            validators.one = (str) => {
+                return typeof str === 'object'
+            }
+            validators.two = (str) => {
+                return typeof str === 'number'
+            }
+
+            const val = new Validator()
+
+            val.field('names', [
+                Validator.required,
+            ])
+            val.array('names', [
+                Validator.validator(validators.one),
+            ])
+            val.collection('names', 'number', [
+                Validator.validator(validators.two),
+            ])
+
+            try {
+                val.field('names', [
+                    Validator.filter((str) => Number(str)),
+                ])
+            } catch (err) {
+                expect(err instanceof Validator.ValidatorError).to.be(true)
+            }
+
+            try {
+                val.array('names', [
+                    Validator.filter((str) => Number(str)),
+                ])
+            } catch (err) {
+                expect(err instanceof Validator.ValidatorError).to.be(true)
+            }
+
+            try {
+                val.collection('names', [
+                    Validator.filter((str) => Number(str)),
+                ])
+            } catch (err) {
+                expect(err instanceof Validator.ValidatorError).to.be(true)
+            }
+
+            await val.validate(obj)
         })
     })
 })
