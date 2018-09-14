@@ -167,6 +167,14 @@ class FieldError extends Error {
         this.validatorName = validatorName
     }
 
+    toJSON () {
+        return {
+            field: this.fieldName,
+            validator: this.validatorName,
+            message: this.message,
+        }
+    }
+
     /**
      * Created Field Error from any error
      *
@@ -267,30 +275,26 @@ async function fieldQueueArray (queue, state) {
             throw new Error(`Queue of ${state.name} has non-function validator or filter`)
         }
         let el = q(state)
-        try {
-            if (el.type === QUEUE_MEMBER.FILTER) {
-                for (let ind of state.data.keys()) {
-                    try {
-                        state.data[ind] = await el.result(state.data[ind])
-                    } catch (err) {
-                        state.errors.push(err)
-                    }
+        if (el.type === QUEUE_MEMBER.FILTER) {
+            for (let ind of state.data.keys()) {
+                try {
+                    state.data[ind] = await el.result(state.data[ind])
+                } catch (err) {
+                    state.errors.push(err)
                 }
             }
-            if (el.type === QUEUE_MEMBER.VALIDATOR) {
-                for (let ind of state.data.keys()) {
-                    try {
-                        let d = await el.result(state.data[ind])
-                        if (!d) {
-                            throw new FieldError(el.name, state.name, 'invalid')
-                        }
-                    } catch (err) {
-                        state.errors.push(err)
+        }
+        if (el.type === QUEUE_MEMBER.VALIDATOR) {
+            for (let ind of state.data.keys()) {
+                try {
+                    let d = await el.result(state.data[ind])
+                    if (!d) {
+                        throw new FieldError(el.name, state.name, 'invalid')
                     }
+                } catch (err) {
+                    state.errors.push(err)
                 }
             }
-        } catch (err) {
-            state.errors.push(err)
         }
     }
     return true
@@ -305,31 +309,27 @@ async function fieldQueueCollection (queue, state) {
             throw new Error(`Queue of ${state.name} has non-function validator or filter`)
         }
         let el = q(state)
-        try {
-            if (el.type === QUEUE_MEMBER.FILTER) {
-                for (let ind of state.data.keys()) {
-                    try {
-                        let d = await el.result(_.get(state.data[ind], queue.subname))
-                        _.set(state.data[ind], queue.subname, d)
-                    } catch (err) {
-                        state.errors.push(err)
-                    }
+        if (el.type === QUEUE_MEMBER.FILTER) {
+            for (let ind of state.data.keys()) {
+                try {
+                    let d = await el.result(_.get(state.data[ind], queue.subname))
+                    _.set(state.data[ind], queue.subname, d)
+                } catch (err) {
+                    state.errors.push(err)
                 }
             }
-            if (el.type === QUEUE_MEMBER.VALIDATOR) {
-                for (let ind of state.data.keys()) {
-                    try {
-                        let d = await el.result(_.get(state.data[ind], queue.subname))
-                        if (!d) {
-                            throw new FieldError(el.name, state.name + `[${ind}]` + queue.subname, 'invalid')
-                        }
-                    } catch (err) {
-                        state.errors.push(err)
+        }
+        if (el.type === QUEUE_MEMBER.VALIDATOR) {
+            for (let ind of state.data.keys()) {
+                try {
+                    let d = await el.result(_.get(state.data[ind], queue.subname))
+                    if (!d) {
+                        throw new FieldError(el.name, state.name + `[${ind}]` + queue.subname, 'invalid')
                     }
+                } catch (err) {
+                    state.errors.push(err)
                 }
             }
-        } catch (err) {
-            state.errors.push(err)
         }
     }
     return true
