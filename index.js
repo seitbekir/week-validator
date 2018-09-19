@@ -110,26 +110,64 @@ class Validator {
         if (typeof method !== 'function') {
             throw new Error('Filter method is not a function')
         }
-        return (state) => {
+
+        let message = null
+
+        const result = (state) => {
             return {
                 name: method.name || 'custom filter',
                 type: QUEUE_MEMBER.FILTER,
                 result: (data) => method.apply(null, [data, ...opts]),
+                message (m, name) {
+                    if (typeof message === 'function') {
+                        return message(name)
+                    }
+                    if (typeof message === 'string') {
+                        return message
+                    }
+                    return m
+                },
             }
         }
+
+        result.message = (m) => {
+            message = m
+            return result
+        }
+
+        return result
     }
 
     static validator (method, ...opts) {
         if (typeof method !== 'function') {
             throw new Error('Validator method is not a function')
         }
-        return (state) => {
+
+        let message = null
+
+        const result = (state) => {
             return {
                 name: method.name || 'custom validator',
                 type: QUEUE_MEMBER.VALIDATOR,
                 result: (data) => method.apply(null, [data, ...opts]),
+                message (m, name) {
+                    if (typeof message === 'function') {
+                        return message(name)
+                    }
+                    if (typeof message === 'string') {
+                        return message
+                    }
+                    return m
+                },
             }
         }
+
+        result.message = (m) => {
+            message = m
+            return result
+        }
+
+        return result
     }
 
     // Custor validators
@@ -162,7 +200,7 @@ class FieldError extends Error {
      * @param {String} message
      */
     constructor (validatorName, fieldName, message) {
-        super(`${validatorName} on ${fieldName} is ${message}`)
+        super(message || `${validatorName} on ${fieldName} is invalid`)
         this.fieldName = fieldName
         this.validatorName = validatorName
     }
@@ -181,7 +219,7 @@ class FieldError extends Error {
      * @param {Error} error Error object
      */
     static fromError (validatorName, fieldName, error) {
-        return new FieldError(validatorName, fieldName, error.message || 'invalid')
+        return new FieldError(validatorName, fieldName, error.message)
     }
 }
 
@@ -236,7 +274,7 @@ async function fieldQueue (queues, object, states) {
 
 async function fieldQueueField (queue, state) {
     if (state.exists === false && queue.queue.find(q => q === Validator.required)) {
-        state.errors.push(new FieldError('required', state.name, 'invalid'))
+        state.errors.push(new FieldError('required', state.name, `${state.name} is Required`))
     }
     if (state.exists === false) {
         return true
@@ -256,10 +294,11 @@ async function fieldQueueField (queue, state) {
             if (el.type === QUEUE_MEMBER.VALIDATOR) {
                 let d = await el.result(state.data)
                 if (!d) {
-                    throw new FieldError(el.name, state.name, 'invalid')
+                    throw new FieldError(el.name, state.name)
                 }
             }
         } catch (err) {
+            err.message = el.message(err.message, state.name)
             state.errors.push(FieldError.fromError(el.name, state.name, err))
         }
     }
@@ -277,22 +316,28 @@ async function fieldQueueArray (queue, state) {
         let el = q(state)
         if (el.type === QUEUE_MEMBER.FILTER) {
             for (let ind of state.data.keys()) {
+                let name = state.name + `[${ind}]`
+
                 try {
                     state.data[ind] = await el.result(state.data[ind])
                 } catch (err) {
-                    state.errors.push(err)
+                    err.message = el.message(err.message, name)
+                    state.errors.push(FieldError.fromError(el.name, name, err))
                 }
             }
         }
         if (el.type === QUEUE_MEMBER.VALIDATOR) {
             for (let ind of state.data.keys()) {
+                let name = state.name + `[${ind}]`
+
                 try {
                     let d = await el.result(state.data[ind])
                     if (!d) {
-                        throw new FieldError(el.name, state.name, 'invalid')
+                        throw new FieldError(el.name, name)
                     }
                 } catch (err) {
-                    state.errors.push(err)
+                    err.message = el.message(err.message, name)
+                    state.errors.push(FieldError.fromError(el.name, name, err))
                 }
             }
         }
@@ -311,23 +356,29 @@ async function fieldQueueCollection (queue, state) {
         let el = q(state)
         if (el.type === QUEUE_MEMBER.FILTER) {
             for (let ind of state.data.keys()) {
+                let name = state.name + `[${ind}].` + queue.subname
+
                 try {
                     let d = await el.result(_.get(state.data[ind], queue.subname))
                     _.set(state.data[ind], queue.subname, d)
                 } catch (err) {
-                    state.errors.push(err)
+                    err.message = el.message(err.message, name)
+                    state.errors.push(FieldError.fromError(el.name, name, err))
                 }
             }
         }
         if (el.type === QUEUE_MEMBER.VALIDATOR) {
             for (let ind of state.data.keys()) {
+                let name = state.name + `[${ind}].` + queue.subname
+
                 try {
                     let d = await el.result(_.get(state.data[ind], queue.subname))
                     if (!d) {
-                        throw new FieldError(el.name, state.name + `[${ind}]` + queue.subname, 'invalid')
+                        throw new FieldError(el.name, name)
                     }
                 } catch (err) {
-                    state.errors.push(err)
+                    err.message = el.message(err.message, name)
+                    state.errors.push(FieldError.fromError(el.name, name, err))
                 }
             }
         }

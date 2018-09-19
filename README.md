@@ -7,22 +7,26 @@ It is easy to use async validator based on ES6 features
 // Init validator instance
 let myValidator = new Validator()
 
-// add field
+// add fields
 myValidator.field('name', [
     Validator.filter((str) => String(str)),
-    Validator.validator(max, 10),
-    Validator.validator((str) => new Promise(res => setTimeout(() => res(true), 1000))),
+    Validator.validator(max, 10).message('Too long name'),
+    Validator.validator((str) => new Promise(resolve => setTimeout(() => resolve(true), 1000))),
 ])
 
 myValidator.array('ages', [
     Validator.validator((item) => _.isNumber(item)),
+    Validator.validator((item) => item > 9).message((name) => `${name} is less that 10`),
 ])
 
 myValidator.field('drinks.alco', [
     Validator.required,
 ])
+myValidator.array('drinks.alco', [
+    Validator.validator((item) => _.isObject(item)),
+])
 myValidator.collection('drinks.alco', 'name', [
-    Validator.validator(max, 10),
+    Validator.validator(max, 10).message((name) => `${name} is too long`),
 ])
 
 // Object to validate
@@ -93,12 +97,19 @@ Validator is the function, that accept or decline data validity for an input. Fo
 
 * *method* is the validation function. (sync or async)
 * *opts* is prepared options.
+* *returns* { message(text) }
 
 ## Validator.filter(method, ...opts)
 Filter is the function which mutates an input data. For example, you may convert any type to `Number` or trim a string. If a filter function uses promise, then filter expects a mutated data in `then()`. Or catch for errors. (for custom errors use `Validator.FieldError`)
 
 * *method* is the filter function. (sync or async)
 * *opts* is prepared options.
+* *returns* { message(text) }
+
+## Validator.[validator(...)|filter(...)].message(text: String|Function)
+Instead of default message of error you able to define your own.
+
+* *name* as function takes argument `name` to be set internally. Ex.: ``.message((name) => `${name} is wrong!`)``
 
 # Internal Validators
 

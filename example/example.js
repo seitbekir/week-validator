@@ -8,22 +8,26 @@ function max (str, max) {
 // Init validator instance
 let myValidator = new Validator()
 
-// add field
+// add fields
 myValidator.field('name', [
     Validator.filter((str) => String(str)),
-    Validator.validator(max, 10),
+    Validator.validator(max, 10).message('Too long name'),
     Validator.validator((str) => new Promise(resolve => setTimeout(() => resolve(true), 1000))),
 ])
 
 myValidator.array('ages', [
     Validator.validator((item) => _.isNumber(item)),
+    Validator.validator((item) => item > 9).message((name) => `${name} is less that 10`),
 ])
 
 myValidator.field('drinks.alco', [
     Validator.required,
 ])
+myValidator.array('drinks.alco', [
+    Validator.validator((item) => _.isObject(item)),
+])
 myValidator.collection('drinks.alco', 'name', [
-    Validator.validator(max, 10),
+    Validator.validator(max, 10).message((name) => `${name} is too long`),
 ])
 
 // Object to validate

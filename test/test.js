@@ -33,6 +33,16 @@ describe('Validator', () => {
         it('should has two basic validation static methods', () => {
             expect(Validator).to.have.property('required')
         })
+        it('should return methods of filter and validator', () => {
+            const filter = Validator.filter((v) => true)
+            const validator = Validator.validator((v) => true)
+
+            expect(filter).to.have.property('message')
+            expect(validator).to.have.property('message')
+
+            expect(filter.message).to.be.a('function')
+            expect(validator.message).to.be.a('function')
+        })
     })
 
     describe('Validation checks', () => {
@@ -62,14 +72,14 @@ describe('Validator', () => {
             expect(validators.two.calledOnce).to.be(true)
             expect(validators.two.calledAfter(validators.one)).to.be(true)
         })
-        it('should should not interupt validation fall on fail', async () => {
+        it('should not interupt validation fall on fail', async () => {
             const validators = {}
 
             validators.one = (str) => {
                 return typeof str === 'number'
             }
             validators.two = (str) => {
-                return typeof str === 'function' // this has to fail
+                return typeof str === 'function'
             }
             validators.tri = (str) => {
                 return typeof str === 'number'
@@ -83,7 +93,7 @@ describe('Validator', () => {
 
             val.field('age', [
                 Validator.validator(validators.one),
-                Validator.validator(validators.two),
+                Validator.validator(validators.two), // this has to fail
                 Validator.validator(validators.tri),
             ])
 
@@ -97,6 +107,52 @@ describe('Validator', () => {
                 expect(validators.tri.calledOnce).to.be(true)
 
                 expect(validators.two.calledAfter(validators.one)).to.be(true)
+            }
+        })
+        it('should set custom message on fail', async () => {
+            const validators = {}
+
+            validators.one = (str) => {
+                return typeof str === 'function'
+            }
+            validators.two = (str) => {
+                return typeof str === 'function'
+            }
+            validators.tri = (str) => {
+                return typeof str === 'function'
+            }
+
+            spy(validators, 'one')
+            spy(validators, 'two')
+            spy(validators, 'tri')
+
+            const val = new Validator()
+
+            val.field('age', [
+                Validator.validator(validators.one),
+                Validator.validator(validators.two).message('custom error'),
+                Validator.validator(validators.tri).message((name) => `${name} field error`),
+            ])
+
+            try {
+                await val.validate({ age: 20 })
+            } catch (err) {
+                expect(err instanceof Validator.ValidationError).to.be(true)
+
+                expect(err.fields.length).to.eql(1)
+                expect(err.fields[0].errors.length).to.eql(3)
+
+                expect(err.fields[0].errors[0].fieldName).to.eql('age')
+                expect(err.fields[0].errors[0].validatorName).to.eql('proxy') // because of spy
+                expect(err.fields[0].errors[0].message).to.eql('proxy on age is invalid') // because of spy
+
+                expect(err.fields[0].errors[1].fieldName).to.eql('age')
+                expect(err.fields[0].errors[1].validatorName).to.eql('proxy') // because of spy
+                expect(err.fields[0].errors[1].message).to.eql('custom error')
+
+                expect(err.fields[0].errors[2].fieldName).to.eql('age')
+                expect(err.fields[0].errors[2].validatorName).to.eql('proxy') // because of spy
+                expect(err.fields[0].errors[2].message).to.eql('age field error')
             }
         })
     })
