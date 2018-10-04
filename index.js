@@ -100,7 +100,7 @@ class Validator {
         // build a cleared form
         const form = {}
         for (let state of states) {
-            form[state.name] = state.data
+            _.set(form, state.name, state.data)
         }
 
         return form
