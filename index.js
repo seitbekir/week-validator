@@ -1,3 +1,4 @@
+/// <reference path="./index.d.ts" />
 /**
  * Week validator is very light validator that made to work with
  * sync and async validation in same stack.
@@ -20,9 +21,17 @@ class Validator {
         this.queues = []
         this.states = {}
         this.names = []
+
+        this.continueOnError = true
     }
 
     static get QUEUE_MEMBER () { return QUEUE_MEMBER }
+
+    setContinueOnError (continueOnError) {
+        this.continueOnError = continueOnError
+
+        return this
+    }
 
     /**
      * Apply list of filters and validators to field
@@ -31,6 +40,7 @@ class Validator {
      */
     field (name, queue) {
         checkNames(name, this.names)
+        checkQueue(name, queue)
         this.names.push(name)
 
         this.queues.push({
@@ -38,6 +48,8 @@ class Validator {
             name,
             queue: queue || [],
         })
+
+        return this
     }
 
     /**
@@ -49,6 +61,7 @@ class Validator {
     collection (name, subname, queue = []) {
         let names = `${name}[]${subname}`
         checkNames(names, this.names)
+        checkQueue(name, queue)
         this.names.push(names)
 
         this.queues.push({
@@ -57,6 +70,8 @@ class Validator {
             subname,
             queue: queue || [],
         })
+
+        return this
     }
 
     /**
@@ -67,6 +82,7 @@ class Validator {
     array (name, queue = []) {
         let names = `${name}[]`
         checkNames(names, this.names)
+        checkQueue(name, queue)
         this.names.push(names)
 
         this.queues.push({
@@ -74,6 +90,8 @@ class Validator {
             name,
             queue: queue || [],
         })
+
+        return this
     }
 
     async validate (object) {
@@ -83,7 +101,7 @@ class Validator {
         const promises = []
 
         for (let queues of named) {
-            promises.push(fieldQueue(queues, object, states))
+            promises.push(fieldQueue(queues, object, states, this.continueOnError))
         }
 
         await Promise.all(_.filter(promises))
@@ -171,10 +189,17 @@ class Validator {
     }
 
     // Custor validators
-    static required (state) {
+    static get required () {
         return {
             name: 'required',
             type: QUEUE_MEMBER.REQUIRED,
+        }
+    }
+    static default (value) {
+        return {
+            name: 'default',
+            type: QUEUE_MEMBER.REQUIRED,
+            value,
         }
     }
 }
@@ -236,8 +261,30 @@ function checkNames (name, names) {
         throw new ValidatorError(`${name} field already defined`, name)
     }
 }
+function checkQueue (name, queue) {
+    if (_.isArray(queue)) {
+        if (queue.filter(q => q.type === QUEUE_MEMBER.REQUIRED).length > 1) {
+            throw new ValidatorError(`Should be required or deffault only`, name)
+        }
+        if (queue.findIndex(q => q.type === QUEUE_MEMBER.REQUIRED) > 0) {
+            throw new ValidatorError(`Required or default has to be first in queue`, name)
+        }
+        if (queue.some(q => typeof q !== 'function' && !isRequired(q))) {
+            throw new Error(`Queue of ${name} has non-function validator or filter`)
+        }
+    }
+    if (!_.isArray(queue) && !_.isUndefined(queue)) {
+        throw new ValidatorError(`Validation queue has to be array or undefined`, name)
+    }
+}
+function isRequired (q) {
+    if (typeof q !== 'function' && q && q.type === QUEUE_MEMBER.REQUIRED) {
+        return true
+    }
+    return false
+}
 
-async function fieldQueue (queues, object, states) {
+async function fieldQueue (queues, object, states, continueOnError = false) {
     // console.log(queues)
     const name = queues[0].name
     let state = {
@@ -259,35 +306,48 @@ async function fieldQueue (queues, object, states) {
         }
     })
 
+    const substates = []
     for (let queue of queues) {
         if (queue.type === QUEUE_TYPE.FIELD) {
-            await fieldQueueField(queue, state)
+            await fieldQueueField(queue, state, continueOnError)
         }
         if (queue.type === QUEUE_TYPE.ARRAY) {
-            await fieldQueueArray(queue, state)
+            await fieldQueueArray(queue, state, continueOnError)
         }
         if (queue.type === QUEUE_TYPE.COLLECTION) {
-            await fieldQueueCollection(queue, state)
+            const s = await fieldQueueCollection(queue, state, continueOnError)
+            substates.push(...s)
         }
+    }
+
+    if (substates.length) {
+        const data = []
+        for (const substate of substates) {
+            _.set(data, `[${substate.index}].${substate.subname}`, substate.data)
+        }
+        state.data = data
     }
 }
 
-async function fieldQueueField (queue, state) {
-    if (state.exists === false && queue.queue.find(q => q === Validator.required)) {
-        state.errors.push(new FieldError('required', state.name, `${state.name} is Required`))
+async function fieldQueueField (queue, state, continueOnError) {
+    if (state.exists === false && isRequired(queue.queue[0])) {
+        if (queue.queue[0].name === 'required') {
+            state.errors.push(new FieldError('required', state.name, `${state.name} is Required`))
+        }
+        if (queue.queue[0].name === 'default') {
+            state.data = queue.queue[0].value
+        }
     }
+
     if (state.exists === false) {
         return true
     }
     for (let q of queue.queue) {
         if (typeof q !== 'function') {
-            throw new Error(`Queue of ${state.name} has non-function validator or filter`)
+            continue
         }
         let el = q(state)
         try {
-            if (el.type === QUEUE_MEMBER.REQUIRED) {
-                continue
-            }
             if (el.type === QUEUE_MEMBER.FILTER) {
                 state.data = await el.result(state.data)
             }
@@ -300,44 +360,44 @@ async function fieldQueueField (queue, state) {
         } catch (err) {
             err.message = el.message(err.message, state.name)
             state.errors.push(FieldError.fromError(el.name, state.name, err))
+
+            if (continueOnError === false) {
+                break
+            }
         }
     }
     return true
 }
 
-async function fieldQueueArray (queue, state) {
+async function fieldQueueArray (queue, state, continueOnError = false) {
     if (state.exists === false) {
         return true
     }
-    for (let q of queue.queue) {
-        if (typeof q !== 'function') {
-            throw new Error(`Queue of ${state.name} has non-function validator or filter`)
-        }
-        let el = q(state)
-        if (el.type === QUEUE_MEMBER.FILTER) {
-            for (let ind of state.data.keys()) {
-                let name = state.name + `[${ind}]`
 
-                try {
-                    state.data[ind] = await el.result(state.data[ind])
-                } catch (err) {
-                    err.message = el.message(err.message, name)
-                    state.errors.push(FieldError.fromError(el.name, name, err))
-                }
+    for (let ind of state.data.keys()) {
+        let name = state.name + `[${ind}]`
+        for (let q of queue.queue) {
+            if (typeof q !== 'function') {
+                continue
             }
-        }
-        if (el.type === QUEUE_MEMBER.VALIDATOR) {
-            for (let ind of state.data.keys()) {
-                let name = state.name + `[${ind}]`
+            let el = q(state)
 
-                try {
+            try {
+                if (el.type === QUEUE_MEMBER.FILTER) {
+                    state.data[ind] = await el.result(state.data[ind])
+                }
+                if (el.type === QUEUE_MEMBER.VALIDATOR) {
                     let d = await el.result(state.data[ind])
                     if (!d) {
                         throw new FieldError(el.name, name)
                     }
-                } catch (err) {
-                    err.message = el.message(err.message, name)
-                    state.errors.push(FieldError.fromError(el.name, name, err))
+                }
+            } catch (err) {
+                err.message = el.message(err.message, name)
+                state.errors.push(FieldError.fromError(el.name, name, err))
+
+                if (continueOnError === false) {
+                    break
                 }
             }
         }
@@ -345,43 +405,64 @@ async function fieldQueueArray (queue, state) {
     return true
 }
 
-async function fieldQueueCollection (queue, state) {
+async function fieldQueueCollection (queue, state, continueOnError = false) {
     if (state.exists === false) {
-        return true
+        return []
     }
-    for (let q of queue.queue) {
-        if (typeof q !== 'function') {
-            throw new Error(`Queue of ${state.name} has non-function validator or filter`)
-        }
-        let el = q(state)
-        if (el.type === QUEUE_MEMBER.FILTER) {
-            for (let ind of state.data.keys()) {
-                let name = state.name + `[${ind}].` + queue.subname
 
-                try {
-                    let d = await el.result(_.get(state.data[ind], queue.subname))
-                    _.set(state.data[ind], queue.subname, d)
-                } catch (err) {
-                    err.message = el.message(err.message, name)
-                    state.errors.push(FieldError.fromError(el.name, name, err))
-                }
+    const substates = []
+
+    for (let ind of state.data.keys()) {
+        let name = `${state.name}[${ind}].${queue.subname}`
+        const substate = {
+            name,
+            subname: queue.subname,
+            index: ind,
+            data: _.get(state.data[ind], queue.subname, null),
+            exists: _.has(state.data[ind], queue.subname),
+            errors: [],
+        }
+        substates.push(substate)
+
+        if (substate.exists === false && isRequired(queue.queue[0])) {
+            if (queue.queue[0].name === 'required') {
+                state.errors.push(new FieldError('required', state.name, `${substate.name} is Required`))
+            }
+            if (queue.queue[0].name === 'default') {
+                _.set(substate.data, queue.subname, queue.queue[0].value)
             }
         }
-        if (el.type === QUEUE_MEMBER.VALIDATOR) {
-            for (let ind of state.data.keys()) {
-                let name = state.name + `[${ind}].` + queue.subname
 
-                try {
-                    let d = await el.result(_.get(state.data[ind], queue.subname))
+        if (substate.exists === false) {
+            continue
+        }
+
+        for (let q of queue.queue) {
+            if (typeof q !== 'function') {
+                continue
+            }
+            let el = q(state)
+
+            try {
+                if (el.type === QUEUE_MEMBER.FILTER) {
+                    state.data = await el.result(substate.data)
+                }
+                if (el.type === QUEUE_MEMBER.VALIDATOR) {
+                    let d = await el.result(substate.data)
                     if (!d) {
                         throw new FieldError(el.name, name)
                     }
-                } catch (err) {
-                    err.message = el.message(err.message, name)
-                    state.errors.push(FieldError.fromError(el.name, name, err))
+                }
+            } catch (err) {
+                err.message = el.message(err.message, substate.name)
+                state.errors.push(FieldError.fromError(el.name, name, err))
+
+                if (continueOnError === false) {
+                    break
                 }
             }
         }
     }
-    return true
+
+    return substates
 }

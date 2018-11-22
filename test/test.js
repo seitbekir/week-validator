@@ -32,6 +32,7 @@ describe('Validator', () => {
         })
         it('should has two basic validation static methods', () => {
             expect(Validator).to.have.property('required')
+            expect(Validator).to.have.property('default')
         })
         it('should return methods of filter and validator', () => {
             const filter = Validator.filter((v) => true)
@@ -72,7 +73,7 @@ describe('Validator', () => {
             expect(validators.two.calledOnce).to.be(true)
             expect(validators.two.calledAfter(validators.one)).to.be(true)
         })
-        it('should not interupt validation fall on fail', async () => {
+        it('should not interupt validation fall on fail by default', async () => {
             const validators = {}
 
             validators.one = (str) => {
@@ -105,6 +106,45 @@ describe('Validator', () => {
                 expect(validators.one.calledOnce).to.be(true)
                 expect(validators.two.calledOnce).to.be(true)
                 expect(validators.tri.calledOnce).to.be(true)
+
+                expect(validators.two.calledAfter(validators.one)).to.be(true)
+            }
+        })
+        it('should interupt validation on fail if proibited', async () => {
+            const validators = {}
+
+            validators.one = (str) => {
+                return typeof str === 'number'
+            }
+            validators.two = (str) => {
+                return typeof str === 'function'
+            }
+            validators.tri = (str) => {
+                return typeof str === 'number'
+            }
+
+            spy(validators, 'one')
+            spy(validators, 'two')
+            spy(validators, 'tri')
+
+            const val = new Validator()
+
+            val.setContinueOnError(false)
+
+            val.field('age', [
+                Validator.validator(validators.one),
+                Validator.validator(validators.two), // this has to fail
+                Validator.validator(validators.tri),
+            ])
+
+            try {
+                await val.validate({ age: 20 })
+            } catch (err) {
+                expect(err instanceof Validator.ValidationError).to.be(true)
+
+                expect(validators.one.calledOnce).to.be(true)
+                expect(validators.two.calledOnce).to.be(true)
+                expect(validators.tri.calledOnce).to.be(false)
 
                 expect(validators.two.calledAfter(validators.one)).to.be(true)
             }
@@ -202,6 +242,9 @@ describe('Validator', () => {
                 Validator.filter((str) => Number(str)),
             ])
             val.field('field2')
+            val.field('field3', [
+                Validator.default(10),
+            ])
 
             let result = await val.validate(obj)
 
@@ -209,10 +252,13 @@ describe('Validator', () => {
             expect(result).to.have.property('age')
             expect(result).not.to.have.property('field')
             expect(result).to.have.property('field2')
+            expect(result).to.have.property('field3')
 
             expect(result.name).to.eql('Messi')
             expect(result.age).to.be(32)
+            expect(result.field3).to.be(10)
             expect(typeof result.age).to.be('number')
+            expect(typeof result.field3).to.be('number')
         })
     })
 
@@ -220,6 +266,44 @@ describe('Validator', () => {
     })
 
     describe('Collection checks', () => {
+        it('has to support required fields same as on `.field(...)`', async () => {
+            const obj = {
+                collection: [
+                    {
+                        name: 'Ange',
+                        room: 5,
+                    },
+                    {
+                        name: 'John',
+                    },
+                ],
+            }
+
+            const val = new Validator()
+
+            val.field('collection', [
+                Validator.validator(Array.isArray),
+            ])
+            val.collection('collection', 'name', [
+                Validator.required,
+            ])
+            val.collection('collection', 'room', [
+            ])
+
+            let result = await val.validate(obj)
+
+            expect(result).to.have.property('collection')
+
+            expect(result.collection[0]).to.have.property('name')
+            expect(result.collection[0]).to.have.property('room')
+            expect(result.collection[1]).to.have.property('name')
+            expect(result.collection[1]).to.have.property('room')
+
+            expect(result.collection[0].name).to.eql('Ange')
+            expect(result.collection[1].name).to.eql('John')
+            expect(result.collection[0].room).to.eql(5)
+            expect(result.collection[1].room).to.eql(null)
+        })
     })
 
     describe('Edge cases checks', () => {
@@ -326,7 +410,7 @@ describe('Validator', () => {
             }
 
             try {
-                val.collection('names', [
+                val.collection('names', 'number', [
                     Validator.filter((str) => Number(str)),
                 ])
             } catch (err) {
