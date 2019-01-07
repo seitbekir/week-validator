@@ -445,7 +445,7 @@ async function fieldQueueCollection (queue, state, continueOnError = false) {
 
             try {
                 if (el.type === QUEUE_MEMBER.FILTER) {
-                    state.data = await el.result(substate.data)
+                    substate.data = await el.result(substate.data)
                 }
                 if (el.type === QUEUE_MEMBER.VALIDATOR) {
                     let d = await el.result(substate.data)
