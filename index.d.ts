@@ -93,10 +93,11 @@ declare class WeekValidator {
     collection (name: string, subname: string, validators: any[]): WeekValidator
     /**
      * Run validation process
+     * @param data data to ba validated
      * @returns Filtered and approved clear object
      * @throws {ValidationError}
      */
-    async validate (): Object
+    validate (data: Object): Object
 
     /**
      * Register field Filter
