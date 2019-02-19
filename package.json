@@ -1,6 +1,6 @@
 {
   "name": "week-validator",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "It is simple validator that can be used as promise based",
   "main": "index.js",
   "types": "index.d.ts",

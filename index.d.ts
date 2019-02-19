@@ -8,7 +8,7 @@ declare class ValidatorError extends Error {
      */
     public fieldname: string
 
-    constructor (message, fieldname): ValidatorError
+    constructor (message: string, fieldname: string)
 }
 
 declare class ValidationError extends Error {
@@ -26,7 +26,7 @@ declare class ValidationError extends Error {
         errors: FieldError[]
     }[]
 
-    constructor (message, fields): ValidationError
+    constructor (message: string, fields: FieldError[])
 }
 
 declare class FieldError extends Error {
@@ -37,7 +37,7 @@ declare class FieldError extends Error {
      * @param fieldName Name of field
      * @param message
      */
-    constructor (validatorName: string, fieldName: string, message: string): FieldError
+    constructor (validatorName: string, fieldName: string, message: string)
 }
 
 declare interface FlowStep {
@@ -52,16 +52,16 @@ declare interface FlowStepMessageless {
 }
 
 declare class WeekValidator {
-    constructor (): WeekValidator
+    constructor ()
 
     /**
      * keeps validation queue
      */
-    const queues: []
+    public queues: []
     /**
      * keeps validation states
      */
-    const states: []
+    public states: []
 
     /**
      * Set if validator shold continue validation if error occured on a field
@@ -127,9 +127,9 @@ declare class WeekValidator {
     static default(): FlowStepMessageless
     static required: FlowStepMessageless
 
-    static ValidatorError = ValidatorError
-    static ValidationError = ValidationError
-    static FieldError = FieldError
+    static ValidatorError: ValidatorError
+    static ValidationError: ValidationError
+    static FieldError: FieldError
 }
 
 export = WeekValidator;
