@@ -124,7 +124,7 @@ declare class WeekValidator {
      */
     static validator (validator: Function, ...params: any[]): FlowStep
 
-    static default(): FlowStepMessageless
+    static default(value: any): FlowStepMessageless
     static required: FlowStepMessageless
 
     static ValidatorError: ValidatorError
