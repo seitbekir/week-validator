@@ -183,15 +183,15 @@ describe('Validator', () => {
                 expect(err.fields[0].errors.length).to.eql(3)
 
                 expect(err.fields[0].errors[0].fieldName).to.eql('age')
-                expect(err.fields[0].errors[0].validatorName).to.eql('proxy') // because of spy
-                expect(err.fields[0].errors[0].message).to.eql('proxy on age is invalid') // because of spy
+                expect(err.fields[0].errors[0].validatorName).to.eql('custom validator')
+                expect(err.fields[0].errors[0].message).to.eql('custom validator on age is invalid')
 
                 expect(err.fields[0].errors[1].fieldName).to.eql('age')
-                expect(err.fields[0].errors[1].validatorName).to.eql('proxy') // because of spy
+                expect(err.fields[0].errors[1].validatorName).to.eql('custom validator')
                 expect(err.fields[0].errors[1].message).to.eql('custom error')
 
                 expect(err.fields[0].errors[2].fieldName).to.eql('age')
-                expect(err.fields[0].errors[2].validatorName).to.eql('proxy') // because of spy
+                expect(err.fields[0].errors[2].validatorName).to.eql('custom validator')
                 expect(err.fields[0].errors[2].message).to.eql('age field error')
             }
         })
